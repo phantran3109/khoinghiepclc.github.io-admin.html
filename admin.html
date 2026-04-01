@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Quản lý video</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    body { background: linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%); }
+    .embed-responsive { position: relative; overflow: hidden; padding-top: 56.25%; }
+    .embed-responsive iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 12px; }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.15); }
+  </style>
+</head>
+<body class="antialiased">
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+  <div class="text-center mb-10">
+    <div class="inline-flex items-center gap-3 bg-white/70 backdrop-blur-sm rounded-full px-5 py-2 shadow-sm mb-4">
+      <i class="fas fa-user-cog text-red-600 text-xl"></i>
+      <i class="fas fa-cloud-upload-alt text-purple-600 text-xl"></i>
+    </div>
+    <h1 class="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-red-600 to-purple-600 bg-clip-text text-transparent">Admin Panel</h1>
+    <p class="text-gray-500 mt-3">📹 Quản trị viên - Thêm và quản lý video (dữ liệu lưu trên Firebase)</p>
+    <a href="./" class="text-indigo-500 text-sm mt-2 inline-block"><i class="fas fa-eye"></i> Xem trang người dùng</a>
+  </div>
+
+  <!-- Form Upload -->
+  <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/60 p-6 md:p-8 mb-12">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-5"><i class="fas fa-upload text-indigo-500"></i> Đăng video mới</h2>
+    
+    <div class="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl">
+      <h3 class="font-semibold text-purple-800 mb-2"><i class="fas fa-desktop"></i> Upload video từ máy tính</h3>
+      <button id="uploadWidgetBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium transition">
+        <i class="fas fa-cloud-upload-alt"></i> Chọn video từ máy tính
+      </button>
+      <p class="text-xs text-gray-500 mt-2">Hỗ trợ MP4, MOV, AVI, MKV (tối đa 200MB)</p>
+    </div>
+
+    <div class="relative my-4">
+      <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+      <div class="relative flex justify-center text-sm"><span class="px-3 bg-white text-gray-500">Hoặc nhập link từ nền tảng khác</span></div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">🔗 Link video *</label>
+        <input type="url" id="videoUrl" placeholder="Facebook, Google Drive..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">🏷️ Tiêu đề *</label>
+        <input type="text" id="videoTitle" placeholder="Tiêu đề video" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">📝 Mô tả</label>
+        <textarea id="videoDesc" rows="2" placeholder="Mô tả ngắn..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">🖼️ Ảnh thumbnail (URL)</label>
+        <input type="text" id="thumbnailUrl" placeholder="https://example.com/thumb.jpg" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none">
+      </div>
+    </div>
+    
+    <div class="mt-6 flex flex-wrap gap-3 justify-end">
+      <button id="clearFormBtn" class="px-5 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 transition"><i class="fas fa-eraser"></i> Xóa form</button>
+      <button id="submitVideoBtn" class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md transition"><i class="fas fa-plus-circle"></i> Thêm video từ link</button>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-list-ul text-indigo-500"></i> Danh sách video đã đăng</h2>
+    <button id="deleteAllBtn" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl transition"><i class="fas fa-trash-alt"></i> Xóa tất cả video</button>
+  </div>
+
+  <div id="emptyLibraryMsg" class="text-center py-16 bg-white/40 rounded-2xl border border-dashed border-gray-300 mb-8 hidden">
+    <i class="fas fa-video-slash text-5xl text-gray-400 mb-3"></i>
+    <p class="text-gray-500">Chưa có video nào. Hãy upload video hoặc thêm link bên trên!</p>
+  </div>
+
+  <div id="videoGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</div>
+
+<script>
+// ========== CẤU HÌNH FIREBASE - THAY BẰNG CỦA BẠN ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyABC123...",  // 👈 THAY BẰNG CỦA BẠN
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.firebasestorage.app",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123..."
+};
+
+// Khởi tạo Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ========== CẤU HÌNH CLOUDINARY ==========
+const CLOUDINARY_CLOUD_NAME = "dd6pxngsz";
+
+// ========== XỬ LÝ LINK VIDEO ==========
+function parseVideoEmbedInfo(url) {
+  if (!url) return { type: "invalid", embedUrl: null, platform: "Không xác định" };
+  
+  if (url.includes('facebook.com') || url.includes('fb.watch')) {
+    return { type: "facebook", embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=0`, platform: "Facebook" };
+  }
+  
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    return { type: "googledrive", embedUrl: `https://drive.google.com/file/d/${driveMatch[1]}/preview`, platform: "Google Drive" };
+  }
+  
+  if (url.match(/\.(mp4|mov|webm|mkv)(\?.*)?$/i)) {
+    return { type: "directmp4", embedUrl: url, platform: "Video trực tiếp" };
+  }
+  
+  if (url.includes('res.cloudinary.com')) {
+    return { type: "cloudinary", embedUrl: url, platform: "Cloudinary" };
+  }
+  
+  return { type: "generic", embedUrl: null, platform: "Link ngoài" };
+}
+
+// ========== THÊM VIDEO VÀO FIREBASE ==========
+async function addVideoToFirebase(title, description, thumbnailUrl, videoUrl, isCloudinary = false) {
+  if (!title.trim()) { alert("Vui lòng nhập tiêu đề"); return false; }
+  if (!videoUrl.trim()) { alert("Vui lòng nhập link hoặc upload video"); return false; }
+  
+  const embedInfo = parseVideoEmbedInfo(videoUrl);
+  const videoData = {
+    title: title.trim(),
+    description: description.trim() || "Không có mô tả",
+    thumbnail: thumbnailUrl.trim() || null,
+    originalUrl: videoUrl.trim(),
+    platform: embedInfo.platform,
+    isCloudinary: isCloudinary,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  
+  try {
+    await db.collection("videos").add(videoData);
+    alert("✅ Đã thêm video thành công!");
+    loadVideos(); // Tải lại danh sách
+    return true;
+  } catch (error) {
+    alert("❌ Lỗi: " + error.message);
+    return false;
+  }
+}
+
+// ========== XÓA VIDEO KHỎI FIREBASE ==========
+async function deleteVideoFromFirebase(id) {
+  if(confirm("Xóa video này?")){
+    try {
+      await db.collection("videos").doc(id).delete();
+      alert("✅ Đã xóa video!");
+      loadVideos();
+    } catch (error) {
+      alert("❌ Lỗi: " + error.message);
+    }
+  }
+}
+
+async function deleteAllVideos() {
+  if(confirm("⚠️ Xóa TẤT CẢ video? Hành động này không thể hoàn tác!")){
+    const snapshot = await db.collection("videos").get();
+    const batch = db.batch();
+    snapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+    alert("✅ Đã xóa tất cả video!");
+    loadVideos();
+  }
+}
+
+// ========== LẤY DANH SÁCH VIDEO TỪ FIREBASE ==========
+async function loadVideos() {
+  const snapshot = await db.collection("videos").orderBy("createdAt", "desc").get();
+  const videos = [];
+  snapshot.forEach(doc => {
+    videos.push({ id: doc.id, ...doc.data() });
+  });
+  renderVideoGrid(videos);
+}
+
+// ========== HIỂN THỊ DANH SÁCH ==========
+function renderVideoGrid(videos) {
+  const grid = document.getElementById("videoGrid");
+  const emptyMsg = document.getElementById("emptyLibraryMsg");
+  
+  if (videos.length === 0) { 
+    grid.innerHTML = ""; 
+    emptyMsg.classList.remove("hidden"); 
+    return; 
+  }
+  emptyMsg.classList.add("hidden");
+  
+  grid.innerHTML = videos.map(v => {
+    let thumb = v.thumbnail || "https://placehold.co/600x400/334155/white?text=Video";
+    const shortDesc = (v.description || "").length > 100 ? (v.description || "").slice(0,100)+"..." : (v.description || "Không có mô tả");
+    const platformIcon = v.platform === "Facebook" ? "fab fa-facebook text-blue-500" : 
+                         (v.platform === "Google Drive" ? "fab fa-google-drive text-green-500" : "fas fa-link text-gray-500");
+    
+    return `
+      <div class="bg-white rounded-xl overflow-hidden shadow-md card-hover border border-gray-100">
+        <div class="relative h-48 bg-gray-200">
+          <img src="${thumb}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/600x400/334155/white?text=Video'">
+          <div class="absolute top-2 right-2 bg-black/70 rounded-full px-2 py-1 text-xs text-white">
+            <i class="${platformIcon} mr-1"></i> ${v.platform || 'Link'}
+          </div>
+        </div>
+        <div class="p-4">
+          <h3 class="font-bold text-lg line-clamp-1" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</h3>
+          <p class="text-gray-500 text-sm mt-1 line-clamp-2">${escapeHtml(shortDesc)}</p>
+          <div class="mt-3 flex justify-between items-center">
+            <a href="${v.originalUrl}" target="_blank" class="text-indigo-500 text-sm hover:underline"><i class="fas fa-link"></i> Link gốc: ${v.platform || 'Nguồn'}</a>
+            <button onclick="deleteVideoFromFirebase('${v.id}')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash-alt"></i> Xóa</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ========== CLOUDINARY UPLOAD ==========
+function initCloudinaryWidget() {
+  const uploadButton = document.getElementById("uploadWidgetBtn");
+  
+  uploadButton.onclick = () => {
+    const title = prompt("📝 Nhập tiêu đề video:", "Video từ máy tính");
+    if (!title) return;
+    const description = prompt("📄 Nhập mô tả (tùy chọn):", "");
+    
+    const widget = cloudinary.createUploadWidget(
+      {
+        cloudName: CLOUDINARY_CLOUD_NAME,
+        uploadPreset: "video_upload_preset",
+        sources: ["local", "camera"],
+        resourceType: "video",
+        maxFileSize: 200000000,
+        multiple: false,
+        clientAllowedFormats: ["mp4", "mov", "avi", "mkv", "webm"]
+      },
+      async (error, result) => {
+        if (!error && result && result.event === "success") {
+          const videoUrl = result.info.secure_url;
+          const thumbnailUrl = result.info.thumbnail_url || "";
+          await addVideoToFirebase(title, description, thumbnailUrl, videoUrl, true);
+        } else if (error) {
+          alert("❌ Upload thất bại: " + (error.message || "Lỗi không xác định"));
+        }
+      }
+    );
+    widget.open();
+  };
+}
+
+function escapeHtml(str) { 
+  if(!str) return "";
+  return str.replace(/[&<>]/g, function(m){ 
+    return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m]; 
+  }); 
+}
+
+function clearForm() { 
+  document.getElementById("videoUrl").value = ""; 
+  document.getElementById("videoTitle").value = ""; 
+  document.getElementById("videoDesc").value = ""; 
+  document.getElementById("thumbnailUrl").value = ""; 
+}
+
+async function handleSubmit() {
+  const url = document.getElementById("videoUrl").value.trim();
+  const title = document.getElementById("videoTitle").value.trim();
+  const desc = document.getElementById("videoDesc").value;
+  const thumb = document.getElementById("thumbnailUrl").value.trim();
+  if(!title) return alert("📝 Vui lòng nhập tiêu đề video");
+  if(!url) return alert("🔗 Vui lòng nhập link video");
+  await addVideoToFirebase(title, desc, thumb, url, false);
+  clearForm();
+}
+
+// ========== KHỞI TẠO ==========
+window.addEventListener("DOMContentLoaded", () => {
+  loadVideos();
+  initCloudinaryWidget();
+  document.getElementById("submitVideoBtn").onclick = handleSubmit;
+  document.getElementById("clearFormBtn").onclick = clearForm;
+  document.getElementById("deleteAllBtn").onclick = deleteAllVideos;
+});
+</script>
+</body>
+</html>
